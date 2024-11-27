@@ -3,7 +3,7 @@ require 'net/imap'
 class Inboxes::FetchImapEmailsJob < MutexApplicationJob
   queue_as :scheduled_jobs
 
-  def perform(channel, interval = 1)
+  def perform(channel, interval = 30)
     Rails.logger.info "[IMAP::FETCH_EMAIL_SERVICE] Job started for inbox #{channel.inbox.id}"
 
     return log_skipped_fetch(channel) unless should_fetch_email?(channel)
@@ -13,7 +13,7 @@ class Inboxes::FetchImapEmailsJob < MutexApplicationJob
     Rails.logger.error "Authorization error for email channel - #{channel.inbox.id} : #{e.message}"
   rescue IOError, OpenSSL::SSL::SSLError, Net::IMAP::NoResponseError, Net::IMAP::BadResponseError, Net::IMAP::InvalidResponseError,
          Net::IMAP::ResponseParseError, Net::IMAP::ResponseReadError, Net::IMAP::ResponseTooLargeError => e
-    Rails.logger.error "Error for email channel - #{channel.inbox.id} : #{e.message}"
+    Rails.logger.error "Error for email channel (I WAS HERE) - #{channel.inbox.id} : #{e.message}"
   rescue LockAcquisitionError
     Rails.logger.error "Lock failed for #{channel.inbox.id}"
   rescue StandardError => e
@@ -74,7 +74,7 @@ class Inboxes::FetchImapEmailsJob < MutexApplicationJob
     Rails.logger.info "[IMAP::FETCH_EMAIL_SERVICE] Finished processing fetched emails for inbox #{channel.inbox.id}"
     true
   rescue OAuth2::Error => e
-    Rails.logger.error "[IMAP::FETCH_EMAIL_SERVICE] OAuth error for inbox #{channel.inbox.id} : #{e.message}"
+    Rails.logger.error "[IMAP::FETCH_EMAIL_SERVICE] OAuth error (I WAS HERE TOO) for inbox #{channel.inbox.id} : #{e.message}"
     channel.authorization_error!
     false
   end
