@@ -40,6 +40,8 @@ import wootConstants, {
 import { LOCAL_STORAGE_KEYS } from 'dashboard/constants/localStorage';
 import { INBOX_TYPES } from 'dashboard/helper/inbox';
 
+const NEAR_BOTTOM_THRESHOLD = 100;
+
 export default {
   components: {
     MessageList,
@@ -84,8 +86,6 @@ export default {
       isLoadingPrevious: true,
       heightBeforeLoad: null,
       conversationPanel: null,
-      hasUserScrolled: false,
-      isProgrammaticScroll: false,
       messageSentSinceOpened: false,
       labelSuggestions: [],
     };
@@ -277,6 +277,7 @@ export default {
     // until the chat is changed and the flag is reset in the watch for currentChat
     emitter.on(BUS_EVENTS.MESSAGE_SENT, () => {
       this.messageSentSinceOpened = true;
+      this.$nextTick(() => this.scrollToBottom());
     });
   },
 
@@ -308,20 +309,19 @@ export default {
         return;
       }
 
-      this.labelSuggestions = await this.getLabelSuggestions();
+      const suggestions = await this.getLabelSuggestions();
+      const wasNearBottom = this.isNearBottom();
+      this.labelSuggestions = suggestions;
 
-      // once the labels are fetched, we need to scroll to bottom
-      // but we need to wait for the DOM to be updated
-      // so we use the nextTick method
+      // the suggestions render below the last message, so keep them in view
+      // if the user was already reading the end of the conversation
       this.$nextTick(() => {
         // this param is added to route, telling the UI to navigate to the message
         // it is triggered by the SCROLL_TO_MESSAGE method
         // see setActiveChat on ConversationView.vue for more info
         const { messageId } = this.$route.query;
 
-        // only trigger the scroll to bottom if the user has not scrolled
-        // and there's no active messageId that is selected in view
-        if (!messageId && !this.hasUserScrolled) {
+        if (!messageId && wasNearBottom) {
           this.scrollToBottom();
         }
       });
@@ -339,14 +339,16 @@ export default {
     removeBusListeners() {
       emitter.off(BUS_EVENTS.SCROLL_TO_MESSAGE, this.onScrollToMessage);
     },
-    onScrollToMessage({ messageId = '' } = {}) {
+    onScrollToMessage({ messageId = '', scrollToTop = false } = {}) {
       this.$nextTick(() => {
         const messageElement = document.getElementById('message' + messageId);
         if (messageElement) {
-          this.isProgrammaticScroll = true;
           messageElement.scrollIntoView({ behavior: 'smooth' });
           this.fetchPreviousMessages();
-        } else {
+        } else if (scrollToTop) {
+          this.conversationPanel.scrollTop = 0;
+        } else if (this.isNearBottom()) {
+          // only follow new messages and updates if the reader is already at the end
           this.scrollToBottom();
         }
       });
@@ -356,14 +358,16 @@ export default {
       this.conversationPanel = this.$el.querySelector('.conversation-panel');
       this.setScrollParams();
       this.conversationPanel.addEventListener('scroll', this.handleScroll);
-      this.$nextTick(() => this.scrollToBottom());
       this.isLoadingPrevious = false;
+    },
+    isNearBottom() {
+      const { scrollTop, scrollHeight, clientHeight } = this.conversationPanel;
+      return scrollHeight - scrollTop - clientHeight < NEAR_BOTTOM_THRESHOLD;
     },
     removeScrollListener() {
       this.conversationPanel.removeEventListener('scroll', this.handleScroll);
     },
     scrollToBottom() {
-      this.isProgrammaticScroll = true;
       let relevantMessages = [];
 
       // label suggestions are not part of the messages list
@@ -432,13 +436,6 @@ export default {
     },
 
     handleScroll(e) {
-      if (this.isProgrammaticScroll) {
-        // Reset the flag
-        this.isProgrammaticScroll = false;
-        this.hasUserScrolled = false;
-      } else {
-        this.hasUserScrolled = true;
-      }
       emitter.emit(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL);
       this.fetchPreviousMessages(e.target.scrollTop);
     },

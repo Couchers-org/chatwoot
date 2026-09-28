@@ -178,7 +178,10 @@ export default {
             after: messageId,
           })
           .then(() => {
-            emitter.emit(BUS_EVENTS.SCROLL_TO_MESSAGE, { messageId });
+            emitter.emit(BUS_EVENTS.SCROLL_TO_MESSAGE, {
+              messageId,
+              scrollToTop: true,
+            });
           });
       } else {
         this.$store.dispatch('clearSelectedState');
