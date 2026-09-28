@@ -6,7 +6,6 @@ import {
   inject,
   nextTick,
   useTemplateRef,
-  getCurrentInstance,
 } from 'vue';
 import {
   useElementSize,
@@ -72,6 +71,7 @@ const FOLD_TRANSITION = {
   enterFromClass: FOLD_HIDDEN_CLASS,
   leaveToClass: FOLD_HIDDEN_CLASS,
 };
+const NEAR_BOTTOM_THRESHOLD = 100;
 
 export default {
   components: {
@@ -148,7 +148,6 @@ export default {
     });
     // A shrinking list keeps its scrollTop, so a list resting at its end would
     // slide under the composer. A growing one is clamped by the browser.
-    const { proxy } = getCurrentInstance();
     let listHeight = 0;
     useResizeObserver(conversationPanelRef, ([{ target }]) => {
       const shrink = listHeight - target.clientHeight;
@@ -156,7 +155,6 @@ export default {
       const { scrollTop, scrollHeight, clientHeight } = target;
       const wasAtEnd = scrollHeight - scrollTop - clientHeight <= shrink + 1;
       if (shrink <= 0 || !wasAtEnd) return;
-      proxy.isProgrammaticScroll = true;
       target.scrollTop = scrollHeight - clientHeight;
     });
     // ReplyBox attaches pasted files from anywhere on the page, folded or not.
@@ -193,8 +191,6 @@ export default {
       isLoadingPrevious: true,
       heightBeforeLoad: null,
       conversationPanel: null,
-      hasUserScrolled: false,
-      isProgrammaticScroll: false,
     };
   },
 
@@ -361,7 +357,10 @@ export default {
   watch: {
     isCampaignHistoryReady(ready) {
       if (!ready) return;
-      this.onScrollToMessage({ messageId: this.$route.query.messageId });
+      this.onScrollToMessage({
+        messageId: this.$route.query.messageId,
+        scrollToTop: true,
+      });
     },
     visibleCampaignHistory() {
       if (!this.conversationPanel) return;
@@ -370,9 +369,10 @@ export default {
         this.conversationPanel,
         this.$route.query.messageId
       );
+      const wasNearBottom = this.isNearBottom();
       this.$nextTick(() => {
         if (this.currentChat.id !== conversationId) return;
-        if (!this.hasUserScrolled && !this.$route.query.messageId) {
+        if (wasNearBottom && !this.$route.query.messageId) {
           this.scrollToBottom();
         } else {
           restoreAnchor();
@@ -389,8 +389,9 @@ export default {
     // The link is appended once the neighbours arrive, below an already scrolled list.
     newerConversation(conversation) {
       if (!conversation) return;
+      const wasNearBottom = this.isNearBottom();
       this.$nextTick(() => {
-        if (!this.$route.query.messageId && !this.hasUserScrolled) {
+        if (!this.$route.query.messageId && wasNearBottom) {
           this.scrollToBottom();
         }
       });
@@ -399,6 +400,7 @@ export default {
 
   created() {
     emitter.on(BUS_EVENTS.SCROLL_TO_MESSAGE, this.onScrollToMessage);
+    emitter.on(BUS_EVENTS.MESSAGE_SENT, this.onMessageSent);
     // Anything that wants to write must bring the folded editor back first.
     emitter.on(BUS_EVENTS.TOGGLE_REPLY_TO_MESSAGE, this.showReplyBox);
     emitter.on(BUS_EVENTS.INSERT_INTO_RICH_EDITOR, this.showReplyBox);
@@ -421,18 +423,24 @@ export default {
     },
     removeBusListeners() {
       emitter.off(BUS_EVENTS.SCROLL_TO_MESSAGE, this.onScrollToMessage);
+      emitter.off(BUS_EVENTS.MESSAGE_SENT, this.onMessageSent);
       emitter.off(BUS_EVENTS.TOGGLE_REPLY_TO_MESSAGE, this.showReplyBox);
       emitter.off(BUS_EVENTS.INSERT_INTO_RICH_EDITOR, this.showReplyBox);
       emitter.off(CMD_AI_ASSIST, this.showReplyBox);
     },
-    onScrollToMessage({ messageId = '' } = {}) {
+    onMessageSent() {
+      this.$nextTick(() => this.scrollToBottom());
+    },
+    onScrollToMessage({ messageId = '', scrollToTop = false } = {}) {
       this.$nextTick(() => {
         const messageElement = document.getElementById('message' + messageId);
         if (messageElement) {
-          this.isProgrammaticScroll = true;
           messageElement.scrollIntoView({ behavior: 'smooth' });
           this.fetchPreviousMessages();
-        } else {
+        } else if (scrollToTop) {
+          this.conversationPanel.scrollTop = 0;
+        } else if (this.isNearBottom()) {
+          // only follow new messages and updates if the reader is already at the end
           this.scrollToBottom();
         }
       });
@@ -442,15 +450,16 @@ export default {
       this.conversationPanel = this.$el.querySelector('.conversation-panel');
       this.setScrollParams();
       this.conversationPanel.addEventListener('scroll', this.handleScroll);
-      this.$nextTick(() => this.scrollToBottom());
       this.isLoadingPrevious = false;
+    },
+    isNearBottom() {
+      const { scrollTop, scrollHeight, clientHeight } = this.conversationPanel;
+      return scrollHeight - scrollTop - clientHeight < NEAR_BOTTOM_THRESHOLD;
     },
     removeScrollListener() {
       this.conversationPanel.removeEventListener('scroll', this.handleScroll);
     },
     scrollToBottom() {
-      this.isProgrammaticScroll = true;
-
       // if there are unread messages, scroll to the first unread message
       if (this.unreadMessageCount > 0) {
         const scrollTop = getUnreadScrollTop(
@@ -507,13 +516,6 @@ export default {
     },
 
     handleScroll(e) {
-      if (this.isProgrammaticScroll) {
-        // Reset the flag
-        this.isProgrammaticScroll = false;
-        this.hasUserScrolled = false;
-      } else {
-        this.hasUserScrolled = true;
-      }
       emitter.emit(BUS_EVENTS.ON_MESSAGE_LIST_SCROLL);
       this.fetchPreviousMessages(e.target.scrollTop);
     },
