@@ -89,6 +89,14 @@ class Messages::MessageBuilder
     @message.content_attributes[:cc_emails] = cc_emails
     @message.content_attributes[:bcc_emails] = bcc_emails
     @message.content_attributes[:to_emails] = to_emails
+    process_email_subject
+  end
+
+  def process_email_subject
+    return if @params[:email_subject].blank?
+
+    email_attributes = ensure_indifferent_access(@message.content_attributes[:email] || {})
+    @message.content_attributes[:email] = email_attributes.merge(subject: @params[:email_subject])
   end
 
   def process_email_content

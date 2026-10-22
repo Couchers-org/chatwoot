@@ -120,6 +120,9 @@ class ConversationReplyMailer < ApplicationMailer
   end
 
   def mail_subject
+    custom_subject = current_message&.content_attributes&.dig(:email, :subject)
+    return custom_subject if custom_subject.present?
+
     subject = @conversation.additional_attributes['mail_subject']
     return "[##{@conversation.display_id}] #{I18n.t('conversations.reply.email_subject')}" if subject.nil?
 

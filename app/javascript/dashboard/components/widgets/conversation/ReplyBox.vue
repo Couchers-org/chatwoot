@@ -132,6 +132,7 @@ export default {
       bccEmails: '',
       ccEmails: '',
       toEmails: '',
+      emailSubject: '',
       doAutoSaveDraft: () => {},
       showWhatsAppTemplatesModal: false,
       showContentTemplatesModal: false,
@@ -1062,6 +1063,7 @@ export default {
       this.ccEmails = '';
       this.bccEmails = '';
       this.toEmails = '';
+      this.emailSubject = '';
     },
 
     toggleEmojiPicker() {
@@ -1249,6 +1251,10 @@ export default {
       if (this.toEmails && !this.isOnPrivateNote) {
         messagePayload.toEmails = this.toEmails;
       }
+
+      if (this.emailSubject && !this.isOnPrivateNote) {
+        messagePayload.emailSubject = this.emailSubject;
+      }
       return messagePayload;
     },
     setCcEmails(value) {
@@ -1270,6 +1276,13 @@ export default {
       this.toEmails = to.join(', ');
       this.ccEmails = cc.join(', ');
       this.bccEmails = bcc.join(', ');
+
+      const subject =
+        this.lastEmail?.content_attributes?.email?.subject ||
+        this.currentChat?.additional_attributes?.mail_subject ||
+        '';
+      this.emailSubject =
+        subject && !/^re:/i.test(subject) ? `Re: ${subject}` : subject;
     },
     fetchAndSetReplyTo() {
       const replyStorageKey = LOCAL_STORAGE_KEYS.MESSAGE_REPLY_TO;
@@ -1393,6 +1406,7 @@ export default {
           v-model:cc-emails="ccEmails"
           v-model:bcc-emails="bccEmails"
           v-model:to-emails="toEmails"
+          v-model:email-subject="emailSubject"
         />
         <AudioRecorder
           v-if="showAudioRecorderEditor"

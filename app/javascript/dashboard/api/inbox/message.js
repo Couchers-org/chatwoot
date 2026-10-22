@@ -11,6 +11,7 @@ export const buildCreatePayload = ({
   ccEmails = '',
   bccEmails = '',
   toEmails = '',
+  emailSubject = '',
   templateParams,
   isVoiceMessage = false,
 }) => {
@@ -31,6 +32,9 @@ export const buildCreatePayload = ({
     if (toEmails) {
       payload.append('to_emails', toEmails);
     }
+    if (emailSubject) {
+      payload.append('email_subject', emailSubject);
+    }
     if (contentAttributes) {
       payload.append('content_attributes', JSON.stringify(contentAttributes));
     }
@@ -46,6 +50,7 @@ export const buildCreatePayload = ({
       cc_emails: ccEmails,
       bcc_emails: bccEmails,
       to_emails: toEmails,
+      email_subject: emailSubject,
       template_params: templateParams,
     };
   }
@@ -67,6 +72,7 @@ class MessageApi extends ApiClient {
     ccEmails = '',
     bccEmails = '',
     toEmails = '',
+    emailSubject = '',
     templateParams,
     isVoiceMessage = false,
   }) {
@@ -82,6 +88,7 @@ class MessageApi extends ApiClient {
         ccEmails,
         bccEmails,
         toEmails,
+        emailSubject,
         templateParams,
         isVoiceMessage,
       }),
