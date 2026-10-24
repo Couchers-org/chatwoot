@@ -36,6 +36,8 @@ export default {
   },
   data() {
     return {
+      showSubject: false,
+      showCc: false,
       showBcc: false,
       ccEmailsVal: '',
       bccEmailsVal: '',
@@ -43,16 +45,23 @@ export default {
       emailSubjectVal: '',
     };
   },
+  computed: {
+    hasHiddenFields() {
+      return !this.showSubject || !this.showCc || !this.showBcc;
+    },
+  },
   watch: {
     bccEmails(newVal) {
       if (newVal !== this.bccEmailsVal) {
         this.bccEmailsVal = newVal;
       }
+      if (newVal) this.showBcc = true;
     },
     ccEmails(newVal) {
       if (newVal !== this.ccEmailsVal) {
         this.ccEmailsVal = newVal;
       }
+      if (newVal) this.showCc = true;
     },
     toEmails(newVal) {
       if (newVal !== this.toEmailsVal) {
@@ -70,6 +79,8 @@ export default {
     this.bccEmailsVal = this.bccEmails;
     this.toEmailsVal = this.toEmails;
     this.emailSubjectVal = this.emailSubject;
+    this.showCc = !!this.ccEmails;
+    this.showBcc = !!this.bccEmails;
   },
   validations: {
     ccEmailsVal: {
@@ -89,9 +100,6 @@ export default {
     },
   },
   methods: {
-    handleAddBcc() {
-      this.showBcc = true;
-    },
     onBlur() {
       this.v$.$touch();
       this.$emit('update:bccEmails', this.bccEmailsVal);
@@ -105,37 +113,57 @@ export default {
 
 <template>
   <div>
-    <div class="input-group small">
-      <label class="input-group-label">
-        {{ $t('CONVERSATION.REPLYBOX.EMAIL_HEAD.SUBJECT') }}
-      </label>
-      <div class="flex-1 min-w-0 m-0 rounded-none whitespace-nowrap">
-        <woot-input
-          v-model="emailSubjectVal"
-          type="text"
-          class="[&>input]:!mb-0 [&>input]:border-transparent [&>input]:!outline-none [&>input]:h-8 [&>input]:!text-sm [&>input]:!border-0 [&>input]:border-none [&>input]:!bg-transparent dark:[&>input]:!bg-transparent"
-          @blur="onBlur"
-        />
-      </div>
-    </div>
-    <div v-if="toEmails">
-      <div class="input-group small" :class="{ error: v$.toEmailsVal.$error }">
-        <label class="input-group-label">
-          {{ $t('CONVERSATION.REPLYBOX.EMAIL_HEAD.TO') }}
-        </label>
-        <div class="flex-1 min-w-0 m-0 rounded-none whitespace-nowrap">
-          <woot-input
-            v-model="v$.toEmailsVal.$model"
-            type="text"
-            class="[&>input]:!mb-0 [&>input]:border-transparent [&>input]:!outline-none [&>input]:h-8 [&>input]:!text-sm [&>input]:!border-0 [&>input]:border-none [&>input]:!bg-transparent dark:[&>input]:!bg-transparent"
-            :class="{ error: v$.toEmailsVal.$error }"
-            :placeholder="$t('CONVERSATION.REPLYBOX.EMAIL_HEAD.CC.PLACEHOLDER')"
-            @blur="onBlur"
+    <div v-if="toEmails || hasHiddenFields" class="input-group-wrap">
+      <div
+        class="input-group small"
+        :class="{ error: toEmails && v$.toEmailsVal.$error }"
+      >
+        <template v-if="toEmails">
+          <label class="input-group-label">
+            {{ $t('CONVERSATION.REPLYBOX.EMAIL_HEAD.TO') }}
+          </label>
+          <div class="flex-1 min-w-0 m-0 rounded-none whitespace-nowrap">
+            <woot-input
+              v-model="v$.toEmailsVal.$model"
+              type="text"
+              class="[&>input]:!mb-0 [&>input]:border-transparent [&>input]:!outline-none [&>input]:h-8 [&>input]:!text-sm [&>input]:!border-0 [&>input]:border-none [&>input]:!bg-transparent dark:[&>input]:!bg-transparent"
+              :class="{ error: v$.toEmailsVal.$error }"
+              :placeholder="
+                $t('CONVERSATION.REPLYBOX.EMAIL_HEAD.CC.PLACEHOLDER')
+              "
+              @blur="onBlur"
+            />
+          </div>
+        </template>
+        <div class="flex items-center gap-1 ms-auto shrink-0">
+          <ButtonV4
+            v-if="!showSubject"
+            :label="$t('CONVERSATION.REPLYBOX.EMAIL_HEAD.CUSTOMIZE_SUBJECT')"
+            ghost
+            xs
+            primary
+            @click="showSubject = true"
+          />
+          <ButtonV4
+            v-if="!showCc"
+            :label="$t('CONVERSATION.REPLYBOX.EMAIL_HEAD.ADD_CC')"
+            ghost
+            xs
+            primary
+            @click="showCc = true"
+          />
+          <ButtonV4
+            v-if="!showBcc"
+            :label="$t('CONVERSATION.REPLYBOX.EMAIL_HEAD.ADD_BCC')"
+            ghost
+            xs
+            primary
+            @click="showBcc = true"
           />
         </div>
       </div>
     </div>
-    <div class="input-group-wrap">
+    <div v-if="showCc" class="input-group-wrap">
       <div class="input-group small" :class="{ error: v$.ccEmailsVal.$error }">
         <label class="input-group-label">
           {{ $t('CONVERSATION.REPLYBOX.EMAIL_HEAD.CC.LABEL') }}
@@ -150,14 +178,6 @@ export default {
             @blur="onBlur"
           />
         </div>
-        <ButtonV4
-          v-if="!showBcc"
-          :label="$t('CONVERSATION.REPLYBOX.EMAIL_HEAD.ADD_BCC')"
-          ghost
-          xs
-          primary
-          @click="handleAddBcc"
-        />
       </div>
       <span v-if="v$.ccEmailsVal.$error" class="message">
         {{ $t('CONVERSATION.REPLYBOX.EMAIL_HEAD.CC.ERROR') }}
@@ -184,6 +204,19 @@ export default {
       <span v-if="v$.bccEmailsVal.$error" class="message">
         {{ $t('CONVERSATION.REPLYBOX.EMAIL_HEAD.BCC.ERROR') }}
       </span>
+    </div>
+    <div v-if="showSubject" class="input-group small">
+      <label class="input-group-label">
+        {{ $t('CONVERSATION.REPLYBOX.EMAIL_HEAD.SUBJECT') }}
+      </label>
+      <div class="flex-1 min-w-0 m-0 rounded-none whitespace-nowrap">
+        <woot-input
+          v-model="emailSubjectVal"
+          type="text"
+          class="[&>input]:!mb-0 [&>input]:border-transparent [&>input]:!outline-none [&>input]:h-8 [&>input]:!text-sm [&>input]:!border-0 [&>input]:border-none [&>input]:!bg-transparent dark:[&>input]:!bg-transparent"
+          @blur="onBlur"
+        />
+      </div>
     </div>
   </div>
 </template>

@@ -298,6 +298,8 @@
       "EMAIL_HEAD": {
         "TO": "TO",
         "SUBJECT": "Subject",
+        "CUSTOMIZE_SUBJECT": "Customize subject",
+        "ADD_CC": "Add cc",
         "ADD_BCC": "Add bcc",
         "CC": {
           "LABEL": "CC",
