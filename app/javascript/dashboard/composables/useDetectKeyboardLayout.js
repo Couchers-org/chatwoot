@@ -13,7 +13,6 @@ async function detectLegacy() {
   input.style.position = 'fixed';
   input.style.top = '-100px';
   document.body.appendChild(input);
-  input.focus();
 
   return new Promise(resolve => {
     const keyboardEvent = new KeyboardEvent('keypress', {
